@@ -41,15 +41,13 @@ public class OrderBookTest {
 
     @BeforeEach
     public void beforeEachTest() throws InterruptedException {
-        Thread.sleep(10000);
+        Thread.sleep(5000);
 
     }
 
     @AfterEach
     public void afterEachTest() throws IOException {
 
-        // tb.bidsLog.clear();
-        // tb.asksLog.clear();
         tb.bidsLog = new LinkedHashMap<BigDecimal, HashMap<BigDecimal, List<Order>>>() {
             protected boolean removeEldestEntry(Map.Entry<BigDecimal, HashMap<BigDecimal, List<Order>>> eldest) {
                 return size() > tb.MAX;
@@ -141,22 +139,24 @@ public class OrderBookTest {
         // printPriceSizeDiff(socketAskPrices, restAskPrices, "ask");
         // printPriceSizeDiff(socketBidPrices, restBidPrices, "bid");
 
-        System.out.println("");
-        Set<BigDecimal> socketAskPricesRemoved = new HashSet<BigDecimal>(socketAskPrices);
-        socketAskPricesRemoved.removeAll(restAskPrices);
-        System.out.println("socket ask prices not in rest asks: " + socketAskPricesRemoved);
+        // System.out.println("");
+        // Set<BigDecimal> socketAskPricesRemoved = new HashSet<BigDecimal>(socketAskPrices);
+        // socketAskPricesRemoved.removeAll(restAskPrices);
+        // System.out.println("socket ask prices not in rest asks: " + socketAskPricesRemoved);
 
-        Set<BigDecimal> restAskPricesRemoved = new HashSet<BigDecimal>(restAskPrices);
-        restAskPricesRemoved.removeAll(socketAskPrices);
-        System.out.println("rest ask prices not in websocket asks: " + restAskPricesRemoved);
-        System.out.println("");
+        // Set<BigDecimal> restAskPricesRemoved = new HashSet<BigDecimal>(restAskPrices);
+        // restAskPricesRemoved.removeAll(socketAskPrices);
+        // System.out.println("rest ask prices not in websocket asks: " + restAskPricesRemoved);
+        // System.out.println("");
         
 
         assertEquals(restAskPrices, socketAskPrices, testIteration);
         assertEquals(restBidPrices, socketBidPrices, testIteration);
 
-        assertOrderListsAtEachPriceLevel(testIteration,"ask",asksAtRestSequence,restAsks);
-        assertOrderListsAtEachPriceLevel(testIteration,"bid",bidsAtRestSequence,restBids);
+        System.out.println("");
+        assertOrderListsAtEachPriceLevel(testIteration, restSequence, "ask",asksAtRestSequence,restAsks);
+        assertOrderListsAtEachPriceLevel(testIteration, restSequence, "bid",bidsAtRestSequence,restBids);
+        System.out.println("");
 
 
         String snapshotTime = getTime();
@@ -176,8 +176,9 @@ public class OrderBookTest {
 
     }
 
-    void assertOrderListsAtEachPriceLevel(String testIteration, String side,TreeMap<BigDecimal, List<Order>> socketTreeTested, TreeMap<BigDecimal, List<Order>> restTreeTested)
+    void assertOrderListsAtEachPriceLevel(String testIteration, BigDecimal seq, String side, TreeMap<BigDecimal, List<Order>> socketTreeTested, TreeMap<BigDecimal, List<Order>> restTreeTested)
     {
+        int numDisparities = 0;
         NavigableSet<BigDecimal> prices = side.equals("bid")? restTreeTested.descendingKeySet() : restTreeTested.navigableKeySet();
         for(BigDecimal price : prices)
         {
@@ -201,7 +202,25 @@ public class OrderBookTest {
 
             assertEquals(restNumOrders, socketNumOrders, numOrdersFailMessage);
             assertEquals(restSize.stripTrailingZeros(), socketSize.stripTrailingZeros(), sizeFailMessage);
+
+            if(restNumOrders != socketNumOrders){
+                System.out.println(numOrdersFailMessage);
+                numDisparities ++;
+            }
+            if(restSize.compareTo(socketSize) != 0){
+                System.out.println(sizeFailMessage);
+                numDisparities ++;
+            }
+
         }
+        String red = "\u001B[31m";
+		String resetColor = "\u001B[0m";
+        String green = "\u001B[32m";
+        
+        String checkMark = numDisparities == 0? "\u2713":"\u274C";
+        String msgColor = numDisparities ==0?  green : red;
+
+        System.out.println(msgColor + numDisparities + " " + side + " disparities at rest sequence " + seq + " " + checkMark + resetColor);
     }
 
     void printPriceSizeDiff(Set<BigDecimal> socket, Set<BigDecimal> rest, String side) {
@@ -277,7 +296,6 @@ class TestBook extends OrderBook {
 
         }
         
-
     }
 
     void log() {

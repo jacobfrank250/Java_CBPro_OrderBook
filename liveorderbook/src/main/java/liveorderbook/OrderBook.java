@@ -143,7 +143,7 @@ public class OrderBook extends WebSocketClient {
 		}
 		if (sequence.compareTo(new BigDecimal("-2")) == 0) {
 			// A sequence of -2 indicates that we need to perform our initial load of the full orderbook
-			System.out.println("A sequence of -2 indicates that we need to perform our initial load of the full orderbook");
+			System.out.println("Performing initial load of the full orderbook");
 			loadFullOrderBook();
 
 			bookChanged = true;
@@ -152,7 +152,7 @@ public class OrderBook extends WebSocketClient {
 		}
 		if (sequence.compareTo(new BigDecimal("-1"))==0) {
 			// A sequence of -1 indicates that we are in the middle of processing the rest API request for the full order book
-			System.out.println("A sequence of -1 ---> WHILST PROCESSING");
+			System.out.println("A sequence of -1 ---> processing rest request");
 			bookChanged = false;
 
 			return;
