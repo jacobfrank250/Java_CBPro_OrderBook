@@ -2,7 +2,6 @@ package liveorderbook;
 
 import static org.junit.Assert.assertTrue;
 
-import org.junit.Test;
 import org.junit.jupiter.api.RepeatedTest;
 
 /**
@@ -13,11 +12,11 @@ public class AppTest
     /**
      * Rigorous Test :-)
      */
-    @RepeatedTest(5)
+    @RepeatedTest(1)
 
     public void shouldAnswerWithTrue()
     {
-        System.out.println("HI");
+        
         assertTrue( true );
     }
 }

@@ -3,16 +3,13 @@ package liveorderbook;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.TreeMap;
-
 import com.google.gson.Gson;
-
 import org.erc.coinbase.pro.exceptions.CoinbaseException;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.drafts.Draft;
@@ -20,16 +17,13 @@ import org.java_websocket.handshake.ServerHandshake;
 import org.json.simple.JsonObject;
 import org.json.simple.Jsoner;
 
-/**
- * This example demonstrates how to create a websocket connection to a server.
- * Only the most important callbacks are overloaded.
- */
+
 
 public class OrderBook extends WebSocketClient {
 	TreeMap<BigDecimal, List<Order>> asks = new TreeMap<BigDecimal, List<Order>>();
 	TreeMap<BigDecimal, List<Order>> bids = new TreeMap<BigDecimal, List<Order>>();
 
-	BigDecimal sequence = new BigDecimal("-1"); // Maybe change to BigInt
+	BigDecimal sequence = new BigDecimal("-1"); 
 
 
 	Queue<JsonObject> msgQueue = new LinkedList<>();
@@ -70,7 +64,6 @@ public class OrderBook extends WebSocketClient {
 		try {
 			processOrderMessage(msg);
 		} catch (CoinbaseException e) {
-			// TODO Auto-generated catch block
 			System.out.print(e);
 			e.printStackTrace();
 		}
@@ -128,12 +121,10 @@ public class OrderBook extends WebSocketClient {
 	}
 
 	public Order msgToOrder(JsonObject msg) {
-		String id = msg.containsKey("order_id") ? msg.getString("order_id") : msg.getString("id"); // Might want a unit
-																									// test
+		String id = msg.containsKey("order_id") ? msg.getString("order_id") : msg.getString("id"); 
 		String side = msg.getString("side");
 		BigDecimal price = msg.getBigDecimal("price");
 
-		// Might want a unit test.
 		BigDecimal size = msg.containsKey("size") ? msg.getBigDecimal("size") : msg.getBigDecimal("remaining_size");
 
 		return new Order(id, side, price, size);
@@ -142,9 +133,9 @@ public class OrderBook extends WebSocketClient {
 	public void processOrderMessage(JsonObject msg) throws CoinbaseException {
 		
 		BigDecimal socketSequence = msg.getBigDecimalOrDefault("sequence", new BigDecimal("-1"));
-
-		// A sequence less than zero indicates that we are processing a rest API request
-		// for the full orderbook
+        /*
+		A sequence less than zero indicates that we are processing a rest API request for the full orderbook
+        */
 		if (sequence.compareTo(BigDecimal.ZERO) == -1) {
 			// While we are proccessing rest request, add messages to queue to process later
 			System.out.println("adding message to the queue");
@@ -184,10 +175,6 @@ public class OrderBook extends WebSocketClient {
 
 		sequence = socketSequence;
 
-		//System.out.println("In OrderBook.java. Sequence is " + sequence);
-
-	
-
 		if (msg.containsKey("type")) {
 			String type = msg.getString("type");
 			if (type.equals("open")) {
@@ -207,7 +194,7 @@ public class OrderBook extends WebSocketClient {
 			}
 		}
 
-		if(printSnapShot)
+		if(printSnapShot && bookChanged)
 		{
 			printBestOrders(5);
 		}
@@ -239,9 +226,6 @@ public class OrderBook extends WebSocketClient {
 			counter++;
 		}
 
-
-		// System.out.println(red + asks.firstKey().setScale(2) + "\u001B[0m" + "\t\t" + green + bids.lastKey().setScale(2)
-		// 		+ resetColor);
 		System.out.println("\n");
 
 		for(String order: topOrders){
@@ -261,7 +245,6 @@ public class OrderBook extends WebSocketClient {
 		if (order.side.equals("buy"))
 		{
 			addOrderToTree(bids, order);
-
 		}
 		else
 		{
@@ -297,7 +280,6 @@ public class OrderBook extends WebSocketClient {
 	}
 
 
-	// public void removeOrderFromTree(TreeMap<BigDecimal, List<Order>> tree, Order order) {
 	public void removeOrderFromTree(TreeMap<BigDecimal, List<Order>> tree, Order order, BigDecimal seqNum) {
 
 		if (tree.get(order.price) != null) {
@@ -310,10 +292,10 @@ public class OrderBook extends WebSocketClient {
 					newOrdersAtPrice.add(o);
 				}
 			}
-
-			// Set orders at this price to the list of orders at this price that are not
-			// equal to the order ID we want to remove
-			// If there are no more orders at this price remove it from the tree
+            /*
+			Set orders at this price to the list of orders at this price that are not equal to the order ID we want to remove.
+            If there are no more orders at this price remove it from the tree
+            */
 			if (newOrdersAtPrice.size() > 0)
 			{
 				tree.put(order.price, newOrdersAtPrice);
@@ -361,9 +343,10 @@ public class OrderBook extends WebSocketClient {
 						Order updatedOrder = new Order(matchOrder.id,matchOrder.side,matchOrder.price,newSize); 
 						orders.set(i,updatedOrder);
 					}
-
-					// Set orders at this price to our updated order list resulting from the match
-					// If the match results in no more orders at this price remove it from the tree
+                    /*
+					Set orders at this price to our updated order list resulting from the match
+                    If the match results in no more orders at this price remove it from the tree
+                    */
 					if(orders.size()>0) {
 						tree.put(matchOrder.price,orders);
 					 } 
@@ -438,21 +421,6 @@ public class OrderBook extends WebSocketClient {
 	@Override
 	public void onClose( int code, String reason, boolean remote ) {
 		System.out.println( "Connection closed by " + ( remote ? "remote peer" : "us" ) + " Code: " + code + " Reason: " + reason );
-		/**
-		 // If not closed "normally" (intenionally), reconnect
-		// if(code!=1000){
-		// 	System.out.println("restarting...");
-        // 	init = 2;
-        // 	try {
-		// 		loadFullOrderBook2();
-		// 	} catch (CoinbaseException e) {
-		// 		// TODO Auto-generated catch block
-		// 		e.printStackTrace();
-		// 	}
-        // 	connect();
-		// }
-		 */
-		
 	}
 
 	@Override
@@ -460,15 +428,6 @@ public class OrderBook extends WebSocketClient {
 		ex.printStackTrace();
 		// if the error is fatal then onClose will be called additionally
 		System.out.println("onError");
-
 	}
-
-	// public static void main( String[] args ){
-	// 	// OrderBook ob = new OrderBook( new URI( "wss://ws-feed.pro.coinbase.com" )); // more about drafts here: http://github.com/TooTallNate/Java-WebSocket/wiki/Drafts
-	// 	OrderBook ob = new OrderBook(URI.create("wss://ws-feed.pro.coinbase.com")); // more about drafts here: http://github.com/TooTallNate/Java-WebSocket/wiki/Drafts
-
-	// 	ob.connect();
-
-	// }
 
 }
