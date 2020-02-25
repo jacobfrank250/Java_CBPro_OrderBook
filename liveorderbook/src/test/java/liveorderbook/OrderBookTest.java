@@ -1,28 +1,18 @@
 package liveorderbook;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.TreeMap;
-
-import org.erc.coinbase.pro.Client;
 import org.erc.coinbase.pro.exceptions.CoinbaseException;
-import org.erc.coinbase.pro.rest.ClientConfig;
-import org.erc.coinbase.pro.rest.RESTClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -82,60 +72,54 @@ public class OrderBookTest {
         TreeMap<BigDecimal, List<Order>> restBids = new TreeMap<BigDecimal, List<Order>>();
 
         BigDecimal restSequence = getRestOrders(restBids, restAsks);
-        String snapshotTime = getTime();
-
+        String snapshotTime = OrderBookRestRequest.getTime();
 
         // Debug message to show state of sequence logs 
-        if((!tb.asksLog.containsKey(restSequence) && !tb.bidsLog.containsKey(restSequence)))
+        // if((!tb.asksLog.containsKey(restSequence) && !tb.bidsLog.containsKey(restSequence)))
+        if(tb.asksLog.get(restSequence) == null || tb.bidsLog.get(restSequence) == null)
         {
             BigDecimal sequenceDelta = restSequence.subtract(tb.sequence);     
-            System.out.println("Last logged socket sequence " + tb.sequence + " (\u0394 " + sequenceDelta + ")");
+            System.out.println("Last logged socket sequence " + tb.sequence + " (\u0394" + sequenceDelta + ")");
         }
 
-        
-        while (!tb.asksLog.containsKey(restSequence) && !tb.bidsLog.containsKey(restSequence)) {
-           
-            BigDecimal sequencesBehind = restSequence.subtract(tb.sequence);
-            if(sequencesBehind.compareTo(BigDecimal.ZERO)<0)
+
+        // while (!tb.asksLog.containsKey(restSequence) && !tb.bidsLog.containsKey(restSequence)) {
+        while (tb.asksLog.get(restSequence) == null || tb.bidsLog.get(restSequence) == null) {
+
+            BigDecimal seqDiff = restSequence.subtract(tb.sequence);
+            if(seqDiff.compareTo(BigDecimal.ZERO)<0)
             {
-                /**
-                Our order logs do not contain the sequence returned by the rest request 
-                and sequencesBehind is a negative number
-                
-                This means that the order logs do not contain a sequence 
-                This is not because we havent proccessed the sequence message
+                /**  
+                The order logs do not contain the sequence returned by the rest request.
+                This is not because we havent proccessed the sequence message,
                 But because its so far back that our size-limited linkedhashmap that stores the order snap shots has deleted it already
                 
                 In this case we should load another rest request to test against
                 */
-                System.out.println("Our order logs do not contain the sequence returned by the rest request. Making another rest request to test against.");
+                System.out.println("Making another rest request to test against.");
                 restAsks.clear();;
                 restBids.clear();
                 // We must wait before making another rest request so as not to exceed rate limit
                 Thread.sleep(500);
 
                 restSequence = getRestOrders(restBids, restAsks);
-                snapshotTime = getTime();
-                // System.out.println("new rest sequence: " + restSequence + " last logged socket sequence is " + tb.sequence + ". \u0394 " + restSequence.subtract(tb.sequence));
+                snapshotTime = OrderBookRestRequest.getTime();
             }
             Thread.sleep(1);
         }
       
-
-    
         System.out.println("\nTesting at sequence: " + restSequence + "\n");
-
 
         TreeMap<BigDecimal, List<Order>> asksAtRestSequence = new TreeMap<BigDecimal, List<Order>>();
         asksAtRestSequence.putAll(tb.asksLog.get(restSequence));
 
-        TreeMap<BigDecimal, List<Order>> bidsAtRestSequence = new TreeMap<BigDecimal, List<Order>>(
-                tb.bidsLog.get(restSequence));
-        
+        TreeMap<BigDecimal, List<Order>> bidsAtRestSequence = new TreeMap<BigDecimal, List<Order>>();
+        bidsAtRestSequence.putAll(tb.bidsLog.get(restSequence));
 
+        
+        // Get the prices in the rest and socket order books
         Set<BigDecimal> socketAskPrices = asksAtRestSequence.keySet();
         Set<BigDecimal> restAskPrices = restAsks.keySet();
-
         Set<BigDecimal> socketBidPrices = bidsAtRestSequence.keySet();
         Set<BigDecimal> restBidPrices = restBids.keySet();
 
@@ -158,7 +142,6 @@ public class OrderBookTest {
                     snapshotTime);
         
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
 
@@ -183,6 +166,7 @@ public class OrderBookTest {
             for(Order order:socketOrders){
                 socketSize = socketSize.add(order.size);
             }
+            
             String numOrdersFailMessage =  testIteration + "\n(" + side + ") num orders are not equal at price " + price
             + "\n-->rest: " + restNumOrders + ", socket: " + socketNumOrders;
             String sizeFailMessage =  testIteration + "\n(" + side + ") socket and rest sizes are not equal at price " + price
@@ -211,7 +195,6 @@ public class OrderBookTest {
         System.out.println(msgColor + numDisparities + " " + side + " disparities " + checkMark + resetColor);
     }
 
-   
 
     public static BigDecimal getRestOrders(TreeMap<BigDecimal, List<Order>> bidTree,
             TreeMap<BigDecimal, List<Order>> askTree) throws CoinbaseException {
@@ -224,26 +207,6 @@ public class OrderBookTest {
         return response.sequence;
 
     }
-
-    public String getTime() throws CoinbaseException {
-        ClientConfig config = new ClientConfig();
-        config.setBaseUrl("https://api.pro.coinbase.com");
-        config.setPublicKey("add28ba503bf0ce93180e0a47b6c36be");
-        config.setSecretKey("uiBn7USapxsSLHTkPQokSrk9cvTH8pzEUnBq6QeVmO8m+/+tEAa3F5YsuL43ZLviKcxx3+F2vnMaH+inqKx24g==");
-        config.setPassphrase("9moja018n4a");
-
-        Client client = new RESTClient(config);
-
-        Date date = client.getTime();
-        DateFormat format = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss:SSS");
-        format.setTimeZone(TimeZone.getTimeZone("Etc/UTC"));
-        String formatted = format.format(date);
-        format.setTimeZone(TimeZone.getTimeZone("America/New_York"));
-        formatted = format.format(date);
-        // System.out.println(formatted);
-        return formatted;
-    }
-
 }
 
 class TestBook extends OrderBook {
@@ -276,11 +239,17 @@ class TestBook extends OrderBook {
             log();
         }
         else{
-            asksLog.put(sequence,asksLog.get(sequence.subtract(BigDecimal.ONE)));
-            bidsLog.put(sequence,bidsLog.get(sequence.subtract(BigDecimal.ONE)));
-
+            if(asksLog.get(sequence.subtract(BigDecimal.ONE)) == null || bidsLog.get(sequence.subtract(BigDecimal.ONE)) == null)
+            {
+                //System.out.println("Book did not change but one (or both) of the logs does maps to null for the previous sequence " + sequence.subtract(BigDecimal.ONE) );
+                log();
+            }
+            else
+            {
+                asksLog.put(sequence,asksLog.get(sequence.subtract(BigDecimal.ONE)));
+                bidsLog.put(sequence,bidsLog.get(sequence.subtract(BigDecimal.ONE)));
+            }
         }
-        
     }
 
     void log() {

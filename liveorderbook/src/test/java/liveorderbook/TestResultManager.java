@@ -25,7 +25,7 @@ class TestResultManager {
             return testResultDir;
         }
         else{
-            System.out.println("Sorry couldn't create directory");
+            System.out.println("Sorry could not create directory");
             return "";
         }
 
@@ -38,7 +38,7 @@ class TestResultManager {
             for (int i=0; i<children.length; i++) {
                 boolean success = deleteDir(new File(dir, children[i]));
                 if (!success) {
-                    System.out.println("couldnt delete child of " + dir.toString() + ": " + children[i]);
+                    System.out.println("Could not delete child of " + dir.toString() + ": " + children[i]);
                     return false;
                 }
             }
