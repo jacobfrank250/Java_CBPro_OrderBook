@@ -71,9 +71,9 @@ public class OrderBookTest {
     }
 
     // @Test
-    @RepeatedTest(5)
+    @RepeatedTest(20)
     public void isOrderBookCorrect(RepetitionInfo repetitionInfo) throws InterruptedException, CoinbaseException {
-        String testIteration = "Repetition #" + repetitionInfo.getCurrentRepetition() + " of "
+        String testIteration = "Test #" + repetitionInfo.getCurrentRepetition() + " of "
                 + repetitionInfo.getTotalRepetitions();
 
         System.out.println(testIteration + "\n");
@@ -82,14 +82,17 @@ public class OrderBookTest {
         TreeMap<BigDecimal, List<Order>> restBids = new TreeMap<BigDecimal, List<Order>>();
 
         BigDecimal restSequence = getRestOrders(restBids, restAsks);
+        String snapshotTime = getTime();
 
+
+        // Debug message to show state of sequence logs 
         if((!tb.asksLog.containsKey(restSequence) && !tb.bidsLog.containsKey(restSequence)))
         {
-            BigDecimal sequencesBehind = restSequence.subtract(tb.sequence);
-            System.out.println("order logs do not contain sequence " + restSequence + ". curr sequence is " + tb.sequence + " (delta " + sequencesBehind + ")" );            
+            BigDecimal sequenceDelta = restSequence.subtract(tb.sequence);     
+            System.out.println("Last logged socket sequence " + tb.sequence + " (\u0394 " + sequenceDelta + ")");
         }
 
-
+        
         while (!tb.asksLog.containsKey(restSequence) && !tb.bidsLog.containsKey(restSequence)) {
            
             BigDecimal sequencesBehind = restSequence.subtract(tb.sequence);
@@ -105,22 +108,23 @@ public class OrderBookTest {
                 
                 In this case we should load another rest request to test against
                 */
-                System.out.println("Our order logs do not contain the sequence returned by the rest request and sequencesBehind is a negative number. As a result, making another rest request to test against.");
+                System.out.println("Our order logs do not contain the sequence returned by the rest request. Making another rest request to test against.");
                 restAsks.clear();;
                 restBids.clear();
+                // We must wait before making another rest request so as not to exceed rate limit
                 Thread.sleep(500);
 
                 restSequence = getRestOrders(restBids, restAsks);
-                System.out.println("new rest sequence: " + restSequence + " websocket sequence is " + tb.sequence + ". " + restSequence.subtract(tb.sequence)+ " sequences behind");
+                snapshotTime = getTime();
+                // System.out.println("new rest sequence: " + restSequence + " last logged socket sequence is " + tb.sequence + ". \u0394 " + restSequence.subtract(tb.sequence));
             }
             Thread.sleep(1);
         }
       
 
-       System.out.println(
-                    "order logs DOES contain sequence " + restSequence + ". curr sequence is " + tb.sequence);
+    
+        System.out.println("\nTesting at sequence: " + restSequence + "\n");
 
-        System.out.println();
 
         TreeMap<BigDecimal, List<Order>> asksAtRestSequence = new TreeMap<BigDecimal, List<Order>>();
         asksAtRestSequence.putAll(tb.asksLog.get(restSequence));
@@ -135,40 +139,24 @@ public class OrderBookTest {
         Set<BigDecimal> socketBidPrices = bidsAtRestSequence.keySet();
         Set<BigDecimal> restBidPrices = restBids.keySet();
 
-
-        // printPriceSizeDiff(socketAskPrices, restAskPrices, "ask");
-        // printPriceSizeDiff(socketBidPrices, restBidPrices, "bid");
-
-        // System.out.println("");
-        // Set<BigDecimal> socketAskPricesRemoved = new HashSet<BigDecimal>(socketAskPrices);
-        // socketAskPricesRemoved.removeAll(restAskPrices);
-        // System.out.println("socket ask prices not in rest asks: " + socketAskPricesRemoved);
-
-        // Set<BigDecimal> restAskPricesRemoved = new HashSet<BigDecimal>(restAskPrices);
-        // restAskPricesRemoved.removeAll(socketAskPrices);
-        // System.out.println("rest ask prices not in websocket asks: " + restAskPricesRemoved);
-        // System.out.println("");
-        
-
+        // Check all the prices in the order book are the same
         assertEquals(restAskPrices, socketAskPrices, testIteration);
         assertEquals(restBidPrices, socketBidPrices, testIteration);
+        
+        // Check that every order at each price level is the same
+        assertOrderListsAtEachPriceLevel(testIteration, restSequence, "ask", asksAtRestSequence, restAsks);
+        assertOrderListsAtEachPriceLevel(testIteration, restSequence, "bid", bidsAtRestSequence, restBids);
+        
+        System.out.println("\n" + snapshotTime);
 
-        System.out.println("");
-        assertOrderListsAtEachPriceLevel(testIteration, restSequence, "ask",asksAtRestSequence,restAsks);
-        assertOrderListsAtEachPriceLevel(testIteration, restSequence, "bid",bidsAtRestSequence,restBids);
-        System.out.println("");
-
-
-        String snapshotTime = getTime();
-
+        // Write to csv file
         try {
             String dir = TestResultManager.createTestResultDir("test" + repetitionInfo.getCurrentRepetition());
             TestResultManager.writeTestResultToFile(dir, "ask", restSequence, asksAtRestSequence, restAsks,
                     snapshotTime);
             TestResultManager.writeTestResultToFile(dir, "bid", restSequence, bidsAtRestSequence, restBids,
                     snapshotTime);
-            
-
+        
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -217,16 +205,13 @@ public class OrderBookTest {
 		String resetColor = "\u001B[0m";
         String green = "\u001B[32m";
         
-        String checkMark = numDisparities == 0? "\u2713":"\u274C";
-        String msgColor = numDisparities ==0?  green : red;
+        String checkMark = numDisparities == 0 ? "\u2713":"\u274C";
+        String msgColor = numDisparities ==0 ?  green : red;
 
-        System.out.println(msgColor + numDisparities + " " + side + " disparities at rest sequence " + seq + " " + checkMark + resetColor);
+        System.out.println(msgColor + numDisparities + " " + side + " disparities " + checkMark + resetColor);
     }
 
-    void printPriceSizeDiff(Set<BigDecimal> socket, Set<BigDecimal> rest, String side) {
-        System.out.println("Length of rest " + side + "s: " + rest.size());
-        System.out.println("Length of websocket " + side + "s: " + socket.size());
-    }
+   
 
     public static BigDecimal getRestOrders(TreeMap<BigDecimal, List<Order>> bidTree,
             TreeMap<BigDecimal, List<Order>> askTree) throws CoinbaseException {
@@ -255,7 +240,7 @@ public class OrderBookTest {
         String formatted = format.format(date);
         format.setTimeZone(TimeZone.getTimeZone("America/New_York"));
         formatted = format.format(date);
-        System.out.println(formatted);
+        // System.out.println(formatted);
         return formatted;
     }
 

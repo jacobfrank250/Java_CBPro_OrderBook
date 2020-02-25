@@ -95,7 +95,7 @@ public class OrderBook extends WebSocketClient {
 		
 		sequence = response.sequence;
 
-		System.out.println("Loaded Full Order Book From Rest Request. SEQUENCE IS NOW: " + sequence);
+		// System.out.println("Loaded Full Order Book From Rest Request. SEQUENCE IS NOW: " + sequence);
 
 		while(msgQueue.size()>0){
 			System.out.println("proccessing a message from the q");
