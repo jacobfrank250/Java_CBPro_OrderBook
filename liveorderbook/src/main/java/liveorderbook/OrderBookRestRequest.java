@@ -14,6 +14,7 @@ import org.erc.coinbase.pro.exceptions.CoinbaseException;
 import org.erc.coinbase.pro.model.Book;
 import org.erc.coinbase.pro.rest.ClientConfig;
 import org.erc.coinbase.pro.rest.RESTClient;
+// import test.java.liveorderbook.AggregatedBook;
 
 class OrderBookRestRequest {
     List<List<String>> bids;
@@ -63,6 +64,20 @@ class OrderBookRestRequest {
         formatted = format.format(date);
         // System.out.println(formatted);
         return formatted;
+    }
+
+    public static AggregatedBook L2RestRequest() throws CoinbaseException {
+        ClientConfig config = new ClientConfig();
+		config.setBaseUrl("https://api.pro.coinbase.com");
+		config.setPublicKey("add28ba503bf0ce93180e0a47b6c36be");
+		config.setSecretKey("uiBn7USapxsSLHTkPQokSrk9cvTH8pzEUnBq6QeVmO8m+/+tEAa3F5YsuL43ZLviKcxx3+F2vnMaH+inqKx24g==");
+        config.setPassphrase("9moja018n4a");
+
+        Client client = new RESTClient(config);
+
+        Book productList = client.getProductOrderBook("BTC-USD", 2);
+        return new AggregatedBook(productList.getSequence(), productList.getAsks(), productList.getBids());
+        
     }
 
 
